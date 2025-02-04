@@ -34,6 +34,7 @@ fi
 
 # Download the appropriate binary
 echo "Downloading $SERVER/$FILENAME..."
+rm -f "${TARGET_DIR_BIN}"
 curl -# -L "${SERVER}/${FILENAME}" -o "${TARGET_DIR_BIN}"
 chmod +x "${TARGET_DIR_BIN}"
 echo "Installed under ${TARGET_DIR_BIN}"
