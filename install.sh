@@ -72,6 +72,15 @@ if [[ ":$PATH:" != *":${TARGET_DIR}:"* ]]; then
     echo "$APPEND_COMMAND" >>"$PROFILE"
 fi
 
+# Reload the profile
+if [[ "$PREF_SHELL" == "fish" ]]; then
+    # For fish, we need to reload the fish_user_paths
+    fish -c "source $PROFILE"
+else
+    # For other shells, source the profile
+    source "$PROFILE"
+fi
+
 echo
-echo "Detected your preferred shell is ${PREF_SHELL} and added coderunner to PATH. Run 'source ${PROFILE}' or start a new terminal session to use coderunner."
+echo "Detected your preferred shell is ${PREF_SHELL} and added coderunner to PATH. You can now run the command coderunner."
 echo "coderunner successfully installed!"

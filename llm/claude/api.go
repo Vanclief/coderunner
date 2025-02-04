@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/vanclief/ez"
 )
 
 const (
@@ -71,8 +73,14 @@ func (e *APIError) Error() string {
 	)
 }
 
-func NewAPI(apiKey, model string, maxTokens int) *API {
-	return &API{
+func NewAPI(apiKey, model string, maxTokens int) (*API, error) {
+	const op = "claude.NewAPI"
+
+	if model == "" {
+		return nil, ez.New(op, ez.EINVALID, "Model cannot be empty", nil)
+	}
+
+	api := &API{
 		APIKey:          apiKey,
 		Model:           model,
 		BaseURL:         "https://api.anthropic.com/v1/messages",
@@ -81,6 +89,8 @@ func NewAPI(apiKey, model string, maxTokens int) *API {
 		remainingTokens: float64(TokensPerMinute),
 		nextRefill:      time.Now().Add(RefillInterval),
 	}
+
+	return api, nil
 }
 
 func (a *API) waitForTokens(requiredTokens float64) {
