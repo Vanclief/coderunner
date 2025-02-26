@@ -48,7 +48,7 @@ func OpenFile(filePath, editor string) error {
 	}
 
 	// If a specific editor is specified, use it
-	if editor == "vim" || editor == "nano" {
+	if editor != "" {
 		// Check if the editor is available in the system
 		editorPath, err := exec.LookPath(editor)
 		if err != nil {
