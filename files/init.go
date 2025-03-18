@@ -9,7 +9,7 @@ import (
 )
 
 func Init() error {
-	const op = "coderunner.Init"
+	const op = "files.Init"
 
 	err := AddDirToGitignore(CODERUNNER_DIR)
 	if err != nil {
@@ -25,7 +25,7 @@ func Init() error {
 }
 
 func AddDirToGitignore(dir string) error {
-	const op = "coderunner.AddDirToGitignore"
+	const op = "files.AddDirToGitignore"
 
 	if strings.TrimSpace(dir) == "" {
 		return ez.New(op, ez.EINVALID, "directory name cannot be empty", nil)

@@ -7,6 +7,12 @@ import (
 	"github.com/vanclief/ez"
 )
 
+func GetScopeSelectorFilePath() (string, error) {
+	const op = "files.GetScopeFilePath"
+
+	return GetCommitFilePath("selected", "json")
+}
+
 func GetScopeFilePath(scope string) (string, error) {
 	const op = "files.GetScopeFilePath"
 

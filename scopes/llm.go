@@ -1,9 +1,10 @@
-package files
+package scopes
 
 import (
 	"fmt"
 	"os"
 
+	"github.com/vanclief/coderunner/files"
 	"github.com/vanclief/coderunner/llm"
 	"github.com/vanclief/coderunner/llm/chatgpt"
 	"github.com/vanclief/coderunner/llm/claude"
@@ -73,7 +74,7 @@ func (sm ScopeMap) processFiles(paths []string, api llm.API, prompt string, call
 			return ez.New(op, ez.EINTERNAL, "Failed to read file: "+path, err)
 		}
 
-		if IsBinaryFile(content) {
+		if files.IsBinaryFile(content) {
 			continue
 		}
 

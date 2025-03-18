@@ -3,6 +3,7 @@ package files
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -93,6 +94,72 @@ func OpenFile(filePath, editor string) error {
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to open file %s", filePath)
 		return ez.New(op, ez.EINTERNAL, errMsg, err)
+	}
+
+	return nil
+}
+
+func CopyFile(sourceFilePath, targetFilePath string) error {
+	const op = "files.CopyFile"
+
+	// Check if file exists
+	_, err := os.Stat(sourceFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			errMsg := fmt.Sprintf("File %s not found", sourceFilePath)
+			return ez.Root(op, ez.ENOTFOUND, errMsg)
+		}
+		return ez.Wrap(op, err)
+	}
+
+	// Check if target file already exists
+	_, err = os.Stat(targetFilePath)
+	if err == nil {
+		errMsg := fmt.Sprintf("Target file '%s' already exists", targetFilePath)
+		return ez.Root(op, ez.ENOTFOUND, errMsg)
+	}
+
+	// Open source file
+	source, err := os.Open(sourceFilePath)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to open source file '%s'", sourceFilePath)
+		return ez.Root(op, ez.ENOTFOUND, errMsg)
+	}
+	defer source.Close()
+
+	// Create target file
+	target, err := os.Create(targetFilePath)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to create target file '%s'", targetFilePath)
+		return ez.Root(op, ez.ENOTFOUND, errMsg)
+	}
+	defer target.Close()
+
+	// Copy the contents
+	if _, err = io.Copy(target, source); err != nil {
+		return ez.New(op, ez.EINTERNAL, "Failed to copy scope contents", err)
+	}
+
+	return nil
+}
+
+func DeleteFile(filePath string) error {
+	const op = "files.DeleteFile"
+
+	// Check if file exists
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			errMsg := fmt.Sprintf("File %s not found", filePath)
+			return ez.Root(op, ez.ENOTFOUND, errMsg)
+		}
+		return ez.Wrap(op, err)
+	}
+
+	// Delete the file
+	err = os.Remove(filePath)
+	if err != nil {
+		return ez.Wrap(op, err)
 	}
 
 	return nil

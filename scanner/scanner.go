@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/vanclief/coderunner/files"
+	"github.com/vanclief/coderunner/git"
+	"github.com/vanclief/coderunner/scopes"
 	"github.com/vanclief/ez"
 )
 
@@ -39,14 +40,14 @@ func New(rootDir string, allowedExtensions []string) *Scanner {
 	return s
 }
 
-func (s *Scanner) ScanAndCreateScope() (files.ScopeMap, error) {
+func (s *Scanner) ScanAndCreateScope() (scopes.ScopeMap, error) {
 	const op = "Scanner.ScanAndCreateScope"
 
 	if err := s.loadGitIgnore(); err != nil {
 		return nil, ez.Wrap(op, err)
 	}
 
-	scopeMap := make(files.ScopeMap)
+	scopeMap := make(scopes.ScopeMap)
 
 	err := filepath.Walk(s.rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -88,14 +89,19 @@ func (s *Scanner) ScanAndCreateScope() (files.ScopeMap, error) {
 	return scopeMap, nil
 }
 
-// ScanGitDiffAndCreateScope scans only the files that changed in the git diff
+// ScanGitDiffAndCreateScope scans only the scopes that changed in the git diff
 // from and to can be either commit hashes or branch names
 // if to is empty, it will show changes in the working directory
-func (s *Scanner) ScanGitDiffAndCreateScope(from, to string) (files.ScopeMap, error) {
+func (s *Scanner) ScanGitDiffAndCreateScope(to string) (scopes.ScopeMap, error) {
 	const op = "Scanner.ScanGitDiffAndCreateScope"
 
-	// Get changed files from git diff
-	changedFiles, err := s.getGitDiffFiles(from, to)
+	gitInfo, err := git.GetInfo()
+	if err != nil {
+		return nil, ez.Wrap(op, err)
+	}
+
+	// Get changed scopes from git diff
+	changedFiles, err := s.getGitDiffFiles(gitInfo.CurrentCommit, to)
 	if err != nil {
 		return nil, ez.Wrap(op, err)
 	}
@@ -104,7 +110,7 @@ func (s *Scanner) ScanGitDiffAndCreateScope(from, to string) (files.ScopeMap, er
 		return nil, ez.Wrap(op, err)
 	}
 
-	scopeMap := make(files.ScopeMap)
+	scopeMap := make(scopes.ScopeMap)
 
 	// Process each changed file
 	for _, file := range changedFiles {
@@ -129,7 +135,7 @@ func (s *Scanner) ScanGitDiffAndCreateScope(from, to string) (files.ScopeMap, er
 	return scopeMap, nil
 }
 
-// loadGitIgnore loads and parses .gitignore files
+// loadGitIgnore loads and parses .gitignore scopes
 func (s *Scanner) loadGitIgnore() error {
 	const op = "Scanner.loadGitIgnore"
 
@@ -164,7 +170,7 @@ func (s *Scanner) shouldIgnore(path string) bool {
 	// Get the base name of the file/directory
 	base := filepath.Base(path)
 
-	// Check against exact base name matches first (for files like .DS_Store)
+	// Check against exact base name matches first (for scopes like .DS_Store)
 	for _, pattern := range s.ignoreRules {
 		if pattern == base {
 			return true
@@ -185,11 +191,11 @@ func (s *Scanner) shouldIgnore(path string) bool {
 	}
 
 	if !info.IsDir() {
-		// For files, check extension only if we have a whitelist
+		// For scopes, check extension only if we have a whitelist
 		if len(s.allowedExtensions) > 0 {
 			ext := filepath.Ext(path)
 			if !s.allowedExtensions[ext] {
-				return true // Ignore files with non-allowed extensions
+				return true // Ignore scopes with non-allowed extensions
 			}
 		}
 	}
@@ -284,7 +290,7 @@ func (s *Scanner) RemoveAllowedExtension(ext string) {
 	delete(s.allowedExtensions, ext)
 }
 
-// getGitDiffFiles returns a list of files that were changed in the git diff
+// getGitDiffFiles returns a list of scopes that were changed in the git diff
 func (s *Scanner) getGitDiffFiles(from, to string) ([]string, error) {
 	const op = "Scanner.getGitDiffFiles"
 
@@ -304,6 +310,6 @@ func (s *Scanner) getGitDiffFiles(from, to string) ([]string, error) {
 		return nil, ez.New(op, ez.EINTERNAL, "Failed to get git diff", err)
 	}
 
-	files := strings.Split(strings.TrimSpace(string(output)), "\n")
-	return files, nil
+	scopes := strings.Split(strings.TrimSpace(string(output)), "\n")
+	return scopes, nil
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/vanclief/coderunner/files"
 	"github.com/vanclief/coderunner/scanner"
+	"github.com/vanclief/coderunner/scopes"
 	"github.com/vanclief/ez"
 )
 
@@ -16,6 +17,8 @@ func ScopeCmd() *cli.Command {
 		Subcommands: []*cli.Command{
 			scopeListCmd(),
 			scopeCreateCmd(),
+			scopeSelectedCmd(),
+			scopeSelectCmd(),
 			scopeCopyCmd(),
 			scopeEditCmd(),
 			scopeDeleteCmd(),
@@ -30,7 +33,7 @@ func scopeListCmd() *cli.Command {
 		Name:  "list",
 		Usage: "List existing scopes",
 		Action: func(c *cli.Context) error {
-			return files.ListScopeFiles()
+			return scopes.List()
 		},
 	}
 }
@@ -45,11 +48,6 @@ func scopeCreateCmd() *cli.Command {
 				Usage:    "Name of the scope",
 				Aliases:  []string{"s", "n"},
 				Required: true,
-			},
-			&cli.StringFlag{
-				Name:    "base",
-				Usage:   "Starting commit or branch",
-				Aliases: []string{"b"},
 			},
 			&cli.StringFlag{
 				Name:    "target",
@@ -67,19 +65,23 @@ func scopeCreateCmd() *cli.Command {
 
 			s := scanner.New(".", c.StringSlice("extensions"))
 
-			var scopeMap files.ScopeMap
+			var scopeMap scopes.ScopeMap
 			var err error
 
-			if c.String("base") == "" {
-				scopeMap, err = s.ScanAndCreateScope()
+			if c.String("target") != "" {
+				scopeMap, err = s.ScanGitDiffAndCreateScope(c.String("target"))
 				if err != nil {
 					return ez.Wrap(op, err)
 				}
 			} else {
-				scopeMap, err = s.ScanGitDiffAndCreateScope(c.String("base"), c.String("target"))
+				scopeMap, err = s.ScanAndCreateScope()
 				if err != nil {
 					return ez.Wrap(op, err)
 				}
+			}
+
+			if c.String("scope") == "context" {
+				return ez.New(op, ez.EINVALID, "Scope name 'context' is reserved", nil)
 			}
 
 			filePath, err := files.GetScopeFilePath(c.String("scope"))
@@ -92,7 +94,69 @@ func scopeCreateCmd() *cli.Command {
 				return ez.Wrap(op, err)
 			}
 
+			selectedScope := scopes.NewCommitContext(c.String("scope"))
+			err = selectedScope.Save()
+			if err != nil {
+				return ez.Wrap(op, err)
+			}
+
 			fmt.Printf("Created scope file %s You can edit the file to change the scope.\n", filePath)
+
+			return nil
+		},
+	}
+}
+
+func scopeSelectedCmd() *cli.Command {
+	return &cli.Command{
+		Name:  "selected",
+		Usage: "Show the selected scope",
+		Action: func(c *cli.Context) error {
+			const op = "cli.scopeCopyCmd"
+
+			commitContext, err := scopes.LoadCommitContext()
+			if err != nil {
+				fmt.Printf("No selected scope")
+			} else {
+				fmt.Printf("%s", commitContext.SelectedScope)
+			}
+
+			return nil
+		},
+	}
+}
+
+func scopeSelectCmd() *cli.Command {
+	return &cli.Command{
+		Name:  "select",
+		Usage: "Select a scope",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "scope",
+				Usage:    "Name of the scope",
+				Aliases:  []string{"s", "n"},
+				Required: true,
+			},
+		},
+		Action: func(c *cli.Context) error {
+			const op = "cli.scopeCopyCmd"
+
+			if c.String("scope") == "selected" {
+				return ez.New(op, ez.EINVALID, "Scope name 'selected' is reserved", nil)
+			}
+
+			_, err := scopes.LoadScopeMap(c.String("scope"))
+			if err != nil {
+				return ez.Wrap(op, err)
+			}
+
+			selectedScope := scopes.NewCommitContext(c.String("scope"))
+			err = selectedScope.Save()
+			if err != nil {
+				return ez.Wrap(op, err)
+			}
+
+			fmt.Printf("Selected scope %s", c.String("scope"))
 
 			return nil
 		},
@@ -105,12 +169,6 @@ func scopeCopyCmd() *cli.Command {
 		Usage: "Copy a scope",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "scope",
-				Usage:    "Name of the scope",
-				Aliases:  []string{"s", "n"},
-				Required: true,
-			},
-			&cli.StringFlag{
 				Name:     "copy",
 				Usage:    "Name of the scope copy",
 				Aliases:  []string{"o", "c"},
@@ -120,7 +178,16 @@ func scopeCopyCmd() *cli.Command {
 		Action: func(c *cli.Context) error {
 			const op = "cli.scopeCopyCmd"
 
-			sourceFilePath, err := files.GetScopeFilePath(c.String("scope"))
+			if c.String("copy") == "selected" {
+				return ez.New(op, ez.EINVALID, "Scope name 'selected' is reserved", nil)
+			}
+
+			commitContext, err := scopes.LoadCommitContext()
+			if err != nil {
+				return ez.Wrap(op, err)
+			}
+
+			sourceFilePath, err := files.GetScopeFilePath(commitContext.SelectedScope)
 			if err != nil {
 				return ez.Wrap(op, err)
 			}
@@ -149,12 +216,6 @@ func scopeEditCmd() *cli.Command {
 		Usage: "Edit a scope",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "scope",
-				Usage:    "Name of the scope",
-				Aliases:  []string{"s", "n"},
-				Required: true,
-			},
-			&cli.StringFlag{
 				Name:    "editor",
 				Usage:   "Editor to open the file",
 				Aliases: []string{"e"},
@@ -163,7 +224,12 @@ func scopeEditCmd() *cli.Command {
 		Action: func(c *cli.Context) error {
 			const op = "cli.scopeEditCmd"
 
-			filePath, err := files.GetScopeFilePath(c.String("scope"))
+			commitContext, err := scopes.LoadCommitContext()
+			if err != nil {
+				return ez.Wrap(op, err)
+			}
+
+			filePath, err := files.GetScopeFilePath(commitContext.SelectedScope)
 			if err != nil {
 				return ez.Wrap(op, err)
 			}
@@ -193,6 +259,15 @@ func scopeDeleteCmd() *cli.Command {
 		Action: func(c *cli.Context) error {
 			const op = "cli.scopeDeleteCmd"
 
+			commitContext, err := scopes.LoadCommitContext()
+			if err != nil {
+				return ez.Wrap(op, err)
+			}
+
+			if commitContext.SelectedScope == c.String("context") {
+				return ez.New(op, ez.EINVALID, "Cannot delete context scope", nil)
+			}
+
 			filePath, err := files.GetScopeFilePath(c.String("scope"))
 			if err != nil {
 				return ez.Wrap(op, err)
@@ -214,28 +289,15 @@ func scopeTreeCmd() *cli.Command {
 	return &cli.Command{
 		Name:  "tree",
 		Usage: "Display the tree of the files in scope",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "scope",
-				Usage:    "Name of the scope",
-				Aliases:  []string{"s", "n"},
-				Required: true,
-			},
-		},
 		Action: func(c *cli.Context) error {
 			const op = "cmd.scopeTreeCmd"
 
-			filePath, err := files.GetScopeFilePath(c.String("scope"))
+			selectedScope, err := scopes.LoadSelectedScope()
 			if err != nil {
 				return ez.Wrap(op, err)
 			}
 
-			scopeMap, err := files.LoadScopeMap(filePath)
-			if err != nil {
-				return ez.Wrap(op, err)
-			}
-
-			scopeMap.PrintTree()
+			selectedScope.PrintTree()
 
 			return nil
 		},
@@ -246,28 +308,15 @@ func scopePrintCmd() *cli.Command {
 	return &cli.Command{
 		Name:  "print",
 		Usage: "Print the raw scope",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "scope",
-				Usage:    "Name of the scope",
-				Aliases:  []string{"s", "n"},
-				Required: true,
-			},
-		},
 		Action: func(c *cli.Context) error {
 			const op = "cmd.scopePrintCmd"
 
-			filePath, err := files.GetScopeFilePath(c.String("scope"))
+			selectedScope, err := scopes.LoadSelectedScope()
 			if err != nil {
 				return ez.Wrap(op, err)
 			}
 
-			scopeMap, err := files.LoadScopeMap(filePath)
-			if err != nil {
-				return ez.Wrap(op, err)
-			}
-
-			contents, err := scopeMap.GetFilesContent()
+			contents, err := selectedScope.GetFilesContent()
 			if err != nil {
 				return ez.Wrap(op, err)
 			}

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/urfave/cli/v2"
-	"github.com/vanclief/coderunner/files"
+	"github.com/vanclief/coderunner/scopes"
 	"github.com/vanclief/ez"
 )
 
@@ -24,12 +24,6 @@ func promptCmd() *cli.Command {
 		Name:  "prompt",
 		Usage: "Run a prompt on each file of a scope",
 		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "scope",
-				Usage:    "Name of the scope",
-				Aliases:  []string{"s", "n"},
-				Required: true,
-			},
 			&cli.StringFlag{
 				Name:     "prompt",
 				Usage:    "The actual prompt",
@@ -50,24 +44,19 @@ func promptCmd() *cli.Command {
 		Action: func(c *cli.Context) error {
 			const op = "cli.promptCmd"
 
-			scopeFilePath, err := files.GetScopeFilePath(c.String("scope"))
-			if err != nil {
-				return ez.Wrap(op, err)
-			}
-
-			scopeMap, err := files.LoadScopeMap(scopeFilePath)
+			selectedScope, err := scopes.LoadSelectedScope()
 			if err != nil {
 				return ez.Wrap(op, err)
 			}
 
 			callback := llmCallback(c.Bool("save"))
 
-			api, err := files.NewLLM(c.String("model"))
+			api, err := scopes.NewLLM(c.String("model"))
 			if err != nil {
 				return ez.Wrap(op, err)
 			}
 
-			scopeMap.RunPromptOnFiles(api, c.String("prompt"), callback)
+			selectedScope.RunPromptOnFiles(api, c.String("prompt"), callback)
 
 			return nil
 		},

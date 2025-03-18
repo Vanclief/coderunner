@@ -1,4 +1,4 @@
-package files
+package scopes
 
 import (
 	"encoding/json"
@@ -8,18 +8,52 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/vanclief/coderunner/files"
 	"github.com/vanclief/ez"
 )
 
 type ScopeMap map[string]interface{}
 
+// LoadSelectedScope loads the file map with the scope configuration from a JSON file
+func LoadSelectedScope() (ScopeMap, error) {
+	const op = "files.LoadSelectedScope"
+
+	commitContext, err := LoadCommitContext()
+	if err != nil {
+		return nil, ez.Wrap(op, err)
+	}
+
+	filePath, err := files.GetScopeFilePath(commitContext.SelectedScope)
+	if err != nil {
+		return nil, ez.Wrap(op, err)
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, ez.New(op, ez.ENOTFOUND, "Scope doesn't exist", err)
+	}
+
+	var scopeMap ScopeMap
+	if err := json.Unmarshal(data, &scopeMap); err != nil {
+		return nil, ez.New(op, ez.EINVALID, "Failed to parse scope file", err)
+	}
+
+	return scopeMap, nil
+}
+
 // LoadScopeMap loads the file map with the scope configuration from a JSON file
-func LoadScopeMap(path string) (ScopeMap, error) {
+func LoadScopeMap(scopeName string) (ScopeMap, error) {
 	const op = "files.LoadScopeMap"
 
-	data, err := os.ReadFile(path)
+	filePath, err := files.GetScopeFilePath(scopeName)
 	if err != nil {
-		return nil, ez.New(op, ez.ENOTFOUND, "Failed to read scope file", err)
+		return nil, ez.Wrap(op, err)
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		errMsg := fmt.Sprintf("Scope %s doesn't exist", scopeName)
+		return nil, ez.New(op, ez.ENOTFOUND, errMsg, err)
 	}
 
 	var scopeMap ScopeMap
@@ -192,7 +226,7 @@ func (sm ScopeMap) GetFilesContent() (map[string]string, error) {
 			return nil, ez.New(op, ez.EINTERNAL, "Failed to read file: "+path, err)
 		}
 
-		if IsBinaryFile(content) {
+		if files.IsBinaryFile(content) {
 			continue // Skip binary files
 		}
 		contents[path] = string(content)
