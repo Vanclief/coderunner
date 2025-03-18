@@ -1,4 +1,4 @@
-package files
+package scanner
 
 import (
 	"bufio"
@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/vanclief/coderunner/files"
 	"github.com/vanclief/ez"
 )
 
@@ -16,7 +17,7 @@ type Scanner struct {
 	allowedExtensions map[string]bool
 }
 
-func NewScanner(rootDir string, allowedExtensions []string) *Scanner {
+func New(rootDir string, allowedExtensions []string) *Scanner {
 	s := &Scanner{
 		rootDir:           rootDir,
 		ignoreRules:       make([]string, 0, len(defaultIgnorePatterns)),
@@ -38,14 +39,14 @@ func NewScanner(rootDir string, allowedExtensions []string) *Scanner {
 	return s
 }
 
-func (s *Scanner) ScanAndCreateScope() (ScopeMap, error) {
+func (s *Scanner) ScanAndCreateScope() (files.ScopeMap, error) {
 	const op = "Scanner.ScanAndCreateScope"
 
 	if err := s.loadGitIgnore(); err != nil {
 		return nil, ez.Wrap(op, err)
 	}
 
-	scopeMap := make(ScopeMap)
+	scopeMap := make(files.ScopeMap)
 
 	err := filepath.Walk(s.rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -76,7 +77,7 @@ func (s *Scanner) ScanAndCreateScope() (ScopeMap, error) {
 		parts := strings.Split(relPath, "/")
 
 		// Add to map
-		scopeMap.addToMap(parts, !info.IsDir())
+		scopeMap.AddToMap(parts, !info.IsDir())
 
 		return nil
 	})
@@ -90,7 +91,7 @@ func (s *Scanner) ScanAndCreateScope() (ScopeMap, error) {
 // ScanGitDiffAndCreateScope scans only the files that changed in the git diff
 // from and to can be either commit hashes or branch names
 // if to is empty, it will show changes in the working directory
-func (s *Scanner) ScanGitDiffAndCreateScope(from, to string) (ScopeMap, error) {
+func (s *Scanner) ScanGitDiffAndCreateScope(from, to string) (files.ScopeMap, error) {
 	const op = "Scanner.ScanGitDiffAndCreateScope"
 
 	// Get changed files from git diff
@@ -103,7 +104,7 @@ func (s *Scanner) ScanGitDiffAndCreateScope(from, to string) (ScopeMap, error) {
 		return nil, ez.Wrap(op, err)
 	}
 
-	scopeMap := make(ScopeMap)
+	scopeMap := make(files.ScopeMap)
 
 	// Process each changed file
 	for _, file := range changedFiles {
@@ -122,7 +123,7 @@ func (s *Scanner) ScanGitDiffAndCreateScope(from, to string) (ScopeMap, error) {
 		}
 
 		parts := strings.Split(file, "/")
-		scopeMap.addToMap(parts, true)
+		scopeMap.AddToMap(parts, true)
 	}
 
 	return scopeMap, nil

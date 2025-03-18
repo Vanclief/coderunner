@@ -3,8 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/vanclief/coderunner/files"
 	"github.com/urfave/cli/v2"
+	"github.com/vanclief/coderunner/files"
+	"github.com/vanclief/coderunner/scanner"
 	"github.com/vanclief/ez"
 )
 
@@ -64,7 +65,7 @@ func scopeCreateCmd() *cli.Command {
 		Action: func(c *cli.Context) error {
 			const op = "cli.scopeCreateCmd"
 
-			s := files.NewScanner(".", c.StringSlice("extensions"))
+			s := scanner.New(".", c.StringSlice("extensions"))
 
 			var scopeMap files.ScopeMap
 			var err error

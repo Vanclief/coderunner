@@ -46,7 +46,7 @@ func (sm ScopeMap) Save(outputPath string) error {
 	return nil
 }
 
-func (sm ScopeMap) addToMap(parts []string, isFile bool) {
+func (sm ScopeMap) AddToMap(parts []string, isFile bool) {
 	if len(parts) == 0 {
 		return
 	}
@@ -63,7 +63,7 @@ func (sm ScopeMap) addToMap(parts []string, isFile bool) {
 	}
 
 	if subMap, ok := sm[current].(ScopeMap); ok {
-		subMap.addToMap(parts[1:], isFile)
+		subMap.AddToMap(parts[1:], isFile)
 	}
 }
 
