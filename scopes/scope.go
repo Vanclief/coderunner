@@ -12,38 +12,41 @@ import (
 	"github.com/vanclief/ez"
 )
 
-type ScopeMap map[string]interface{}
+// Scope represents a scope with its metadata and content map
+type Scope struct {
+	BaseCommit   string                 `json:"baseCommit"`
+	TargetCommit string                 `json:"targetCommit,omitempty"`
+	Files        map[string]interface{} `json:"files"`
+}
 
-// LoadSelectedScope loads the file map with the scope configuration from a JSON file
-func LoadSelectedScope() (ScopeMap, error) {
-	const op = "files.LoadSelectedScope"
+// NewScope creates a new Scope with the given base commit
+func NewScope(baseCommit string) *Scope {
+	return &Scope{
+		BaseCommit: baseCommit,
+		Files:      make(map[string]interface{}),
+	}
+}
+
+// SetTargetCommit sets the target commit for this scope
+func (s *Scope) SetTargetCommit(commit string) {
+	s.TargetCommit = commit
+}
+
+// LoadSelectedScope loads the currently selected scope
+func LoadSelectedScope() (*Scope, error) {
+	const op = "scopes.LoadSelectedScope"
 
 	commitContext, err := LoadCommitContext()
 	if err != nil {
 		return nil, ez.Wrap(op, err)
 	}
 
-	filePath, err := files.GetScopeFilePath(commitContext.SelectedScope)
-	if err != nil {
-		return nil, ez.Wrap(op, err)
-	}
-
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, ez.New(op, ez.ENOTFOUND, "Scope doesn't exist", err)
-	}
-
-	var scopeMap ScopeMap
-	if err := json.Unmarshal(data, &scopeMap); err != nil {
-		return nil, ez.New(op, ez.EINVALID, "Failed to parse scope file", err)
-	}
-
-	return scopeMap, nil
+	return LoadScope(commitContext.SelectedScope)
 }
 
-// LoadScopeMap loads the file map with the scope configuration from a JSON file
-func LoadScopeMap(scopeName string) (ScopeMap, error) {
-	const op = "files.LoadScopeMap"
+// LoadScope loads a scope by name
+func LoadScope(scopeName string) (*Scope, error) {
+	const op = "scopes.LoadScope"
 
 	filePath, err := files.GetScopeFilePath(scopeName)
 	if err != nil {
@@ -56,18 +59,19 @@ func LoadScopeMap(scopeName string) (ScopeMap, error) {
 		return nil, ez.New(op, ez.ENOTFOUND, errMsg, err)
 	}
 
-	var scopeMap ScopeMap
-	if err := json.Unmarshal(data, &scopeMap); err != nil {
+	var scope Scope
+	if err := json.Unmarshal(data, &scope); err != nil {
 		return nil, ez.New(op, ez.EINVALID, "Failed to parse scope file", err)
 	}
 
-	return scopeMap, nil
+	return &scope, nil
 }
 
-func (sm ScopeMap) Save(outputPath string) error {
-	const op = "ScopeMap.Save"
+// Save persists the scope to a file
+func (s *Scope) Save(outputPath string) error {
+	const op = "Scope.Save"
 
-	data, err := json.MarshalIndent(sm, "", "  ")
+	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return ez.New(op, ez.EINTERNAL, "Error marshaling scope", err)
 	}
@@ -80,7 +84,14 @@ func (sm ScopeMap) Save(outputPath string) error {
 	return nil
 }
 
-func (sm ScopeMap) AddToMap(parts []string, isFile bool) {
+// AddToMap adds a path to the scope map
+func (s *Scope) AddToMap(path string, isFile bool) {
+	parts := strings.Split(path, "/")
+	addToMap(s.Files, parts, isFile)
+}
+
+// addToMap adds path parts to the map
+func addToMap(fileMap map[string]interface{}, parts []string, isFile bool) {
 	if len(parts) == 0 {
 		return
 	}
@@ -88,42 +99,41 @@ func (sm ScopeMap) AddToMap(parts []string, isFile bool) {
 	current := parts[0]
 
 	if len(parts) == 1 && isFile {
-		sm[current] = true
+		fileMap[current] = true
 		return
 	}
 
-	if _, exists := sm[current]; !exists {
-		sm[current] = make(ScopeMap)
+	if _, exists := fileMap[current]; !exists {
+		fileMap[current] = make(map[string]interface{})
 	}
 
-	if subMap, ok := sm[current].(ScopeMap); ok {
-		subMap.AddToMap(parts[1:], isFile)
+	if subMap, ok := fileMap[current].(map[string]interface{}); ok {
+		addToMap(subMap, parts[1:], isFile)
 	}
 }
 
-// PrintTree prints the ScopeMap in a tree-like structure, showing only files in scope
-func (sm ScopeMap) PrintTree() {
-	printTreeNode(sm, "", "")
+// PrintTree prints the scope in a tree-like structure
+func (s *Scope) PrintTree() {
+	fmt.Printf("Scope (Base: %s", s.BaseCommit)
+	if s.TargetCommit != "" {
+		fmt.Printf(", Target: %s", s.TargetCommit)
+	}
+	fmt.Println(")")
+	printTreeNode(s.Files, "", "")
 }
 
 // printTreeNode recursively prints the tree structure
 func printTreeNode(node interface{}, prefix string, path string) {
-	// First try to convert to ScopeMap
-	if sm, ok := node.(ScopeMap); ok {
+	// Try to convert to map[string]interface{}
+	if fileMap, ok := node.(map[string]interface{}); ok {
 		// Get sorted keys for consistent output
-		keys := make([]string, 0, len(sm))
-		for k, val := range sm {
+		keys := make([]string, 0, len(fileMap))
+		for k, val := range fileMap {
 			// For files (bool values), only include if true
-			// For directories (ScopeMap), check if they have any true files
+			// For directories (maps), check if they have any true files
 			switch v := val.(type) {
-			case ScopeMap:
-				if hasInScopeFiles(v) {
-					keys = append(keys, k)
-				}
 			case map[string]interface{}:
-				// Convert to ScopeMap and check
-				subMap := ScopeMap(v)
-				if hasInScopeFiles(subMap) {
+				if hasInScopeFiles(v) {
 					keys = append(keys, k)
 				}
 			case bool:
@@ -163,7 +173,7 @@ func printTreeNode(node interface{}, prefix string, path string) {
 				}
 			}
 
-			printTreeNode(sm[key], newPrefix, newPath)
+			printTreeNode(fileMap[key], newPrefix, newPath)
 		}
 		return
 	}
@@ -171,12 +181,6 @@ func printTreeNode(node interface{}, prefix string, path string) {
 	// Try to convert to bool (for files)
 	if b, ok := node.(bool); ok && b {
 		fmt.Println(getLastComponent(path))
-		return
-	}
-
-	// Try to convert map[string]interface{} to ScopeMap
-	if m, ok := node.(map[string]interface{}); ok {
-		printTreeNode(ScopeMap(m), prefix, path)
 		return
 	}
 }
@@ -189,19 +193,15 @@ func getLastComponent(path string) string {
 }
 
 // hasInScopeFiles recursively checks if a directory has any files with value true
-func hasInScopeFiles(sm ScopeMap) bool {
-	for _, v := range sm {
+func hasInScopeFiles(fileMap map[string]interface{}) bool {
+	for _, v := range fileMap {
 		switch val := v.(type) {
 		case bool:
 			if val {
 				return true
 			}
-		case ScopeMap:
-			if hasInScopeFiles(val) {
-				return true
-			}
 		case map[string]interface{}:
-			if hasInScopeFiles(ScopeMap(val)) {
+			if hasInScopeFiles(val) {
 				return true
 			}
 		}
@@ -210,14 +210,14 @@ func hasInScopeFiles(sm ScopeMap) bool {
 }
 
 // GetFilesContent reads and returns the content of all files marked as true
-func (sm ScopeMap) GetFilesContent() (map[string]string, error) {
-	const op = "Scanner.GetFilesContent"
+func (s *Scope) GetFilesContent() (map[string]string, error) {
+	const op = "Scope.GetFilesContent"
 
 	contents := make(map[string]string)
 	paths := make([]string, 0)
 
 	// First collect all paths with true value
-	collectPaths(sm, "", &paths)
+	collectPaths(s.Files, "", &paths)
 
 	// Then read each file
 	for _, path := range paths {
@@ -235,6 +235,13 @@ func (sm ScopeMap) GetFilesContent() (map[string]string, error) {
 	return contents, nil
 }
 
+// GetAllFilePaths returns all file paths in the scope that are marked as true
+func (s *Scope) GetAllFilePaths() []string {
+	paths := make([]string, 0)
+	collectPaths(s.Files, "", &paths)
+	return paths
+}
+
 // collectPaths recursively collects all file paths that have value true
 func collectPaths(node interface{}, currentPath string, paths *[]string) {
 	switch v := node.(type) {
@@ -242,7 +249,7 @@ func collectPaths(node interface{}, currentPath string, paths *[]string) {
 		if v {
 			*paths = append(*paths, currentPath)
 		}
-	case ScopeMap:
+	case map[string]interface{}:
 		for k, val := range v {
 			newPath := k
 			if currentPath != "" {
@@ -250,7 +257,5 @@ func collectPaths(node interface{}, currentPath string, paths *[]string) {
 			}
 			collectPaths(val, newPath, paths)
 		}
-	case map[string]interface{}:
-		collectPaths(ScopeMap(v), currentPath, paths)
 	}
 }

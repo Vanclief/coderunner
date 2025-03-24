@@ -65,16 +65,16 @@ func scopeCreateCmd() *cli.Command {
 
 			s := scanner.New(".", c.StringSlice("extensions"))
 
-			var scopeMap scopes.ScopeMap
+			var scope *scopes.Scope
 			var err error
 
 			if c.String("target") != "" {
-				scopeMap, err = s.ScanGitDiffAndCreateScope(c.String("target"))
+				scope, err = s.ScanGitDiffAndCreateScope(c.String("target"))
 				if err != nil {
 					return ez.Wrap(op, err)
 				}
 			} else {
-				scopeMap, err = s.ScanAndCreateScope()
+				scope, err = s.ScanAndCreateScope()
 				if err != nil {
 					return ez.Wrap(op, err)
 				}
@@ -89,7 +89,7 @@ func scopeCreateCmd() *cli.Command {
 				return ez.Wrap(op, err)
 			}
 
-			err = scopeMap.Save(filePath)
+			err = scope.Save(filePath)
 			if err != nil {
 				return ez.Wrap(op, err)
 			}
@@ -145,7 +145,7 @@ func scopeSelectCmd() *cli.Command {
 				return ez.New(op, ez.EINVALID, "Scope name 'selected' is reserved", nil)
 			}
 
-			_, err := scopes.LoadScopeMap(c.String("scope"))
+			_, err := scopes.LoadScope(c.String("scope"))
 			if err != nil {
 				return ez.Wrap(op, err)
 			}

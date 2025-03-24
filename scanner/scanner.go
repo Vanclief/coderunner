@@ -40,16 +40,23 @@ func New(rootDir string, allowedExtensions []string) *Scanner {
 	return s
 }
 
-func (s *Scanner) ScanAndCreateScope() (scopes.ScopeMap, error) {
+func (s *Scanner) ScanAndCreateScope() (*scopes.Scope, error) {
 	const op = "Scanner.ScanAndCreateScope"
+
+	// Get git info to use as base commit
+	gitInfo, err := git.GetInfo()
+	if err != nil {
+		return nil, ez.Wrap(op, err)
+	}
+
+	// Create a new scope with the current commit
+	scope := scopes.NewScope(gitInfo.CurrentCommit)
 
 	if err := s.loadGitIgnore(); err != nil {
 		return nil, ez.Wrap(op, err)
 	}
 
-	scopeMap := make(scopes.ScopeMap)
-
-	err := filepath.Walk(s.rootDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(s.rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return ez.New(op, ez.EINTERNAL, "Error accessing path", err)
 		}
@@ -75,10 +82,9 @@ func (s *Scanner) ScanAndCreateScope() (scopes.ScopeMap, error) {
 
 		// Use forward slashes for consistency
 		relPath = filepath.ToSlash(relPath)
-		parts := strings.Split(relPath, "/")
 
-		// Add to map
-		scopeMap.AddToMap(parts, !info.IsDir())
+		// Add to scope
+		scope.AddToMap(relPath, !info.IsDir())
 
 		return nil
 	})
@@ -86,13 +92,13 @@ func (s *Scanner) ScanAndCreateScope() (scopes.ScopeMap, error) {
 		return nil, ez.Wrap(op, err)
 	}
 
-	return scopeMap, nil
+	return scope, nil
 }
 
 // ScanGitDiffAndCreateScope scans only the scopes that changed in the git diff
 // from and to can be either commit hashes or branch names
 // if to is empty, it will show changes in the working directory
-func (s *Scanner) ScanGitDiffAndCreateScope(to string) (scopes.ScopeMap, error) {
+func (s *Scanner) ScanGitDiffAndCreateScope(to string) (*scopes.Scope, error) {
 	const op = "Scanner.ScanGitDiffAndCreateScope"
 
 	gitInfo, err := git.GetInfo()
@@ -110,7 +116,9 @@ func (s *Scanner) ScanGitDiffAndCreateScope(to string) (scopes.ScopeMap, error) 
 		return nil, ez.Wrap(op, err)
 	}
 
-	scopeMap := make(scopes.ScopeMap)
+	// Create a new scope with the base commit
+	scope := scopes.NewScope(gitInfo.CurrentCommit)
+	scope.TargetCommit = to
 
 	// Process each changed file
 	for _, file := range changedFiles {
@@ -128,11 +136,10 @@ func (s *Scanner) ScanGitDiffAndCreateScope(to string) (scopes.ScopeMap, error) 
 			continue
 		}
 
-		parts := strings.Split(file, "/")
-		scopeMap.AddToMap(parts, true)
+		scope.AddToMap(file, true)
 	}
 
-	return scopeMap, nil
+	return scope, nil
 }
 
 // loadGitIgnore loads and parses .gitignore scopes

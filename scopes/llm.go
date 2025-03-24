@@ -55,17 +55,16 @@ func NewChatGPTAPI(model string) (llm.API, error) {
 }
 
 // Refactored process function
-func (sm ScopeMap) RunPromptOnFiles(api llm.API, prompt string, callback LLMCallback) error {
+func (s *Scope) RunPromptOnFiles(api llm.API, prompt string, callback LLMCallback) error {
 	const op = "Scanner.RunPromptOnFiles"
 
-	paths := make([]string, 0)
-	collectPaths(sm, "", &paths)
+	paths := s.GetAllFilePaths()
 
-	return sm.processFiles(paths, api, prompt, callback)
+	return s.processFiles(paths, api, prompt, callback)
 }
 
 // Helper function for file processing logic
-func (sm ScopeMap) processFiles(paths []string, api llm.API, prompt string, callback LLMCallback) error {
+func (s *Scope) processFiles(paths []string, api llm.API, prompt string, callback LLMCallback) error {
 	const op = "Scanner.processFiles"
 
 	for _, path := range paths {
