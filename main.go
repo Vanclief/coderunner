@@ -14,7 +14,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "coderunner"
 	app.Usage = "A context-aware code extraction tool to run LLMs in your codebase."
-	app.Version = "0.2.0"
+	app.Version = "0.2.1"
 
 	app.Commands = []*cli.Command{
 		cmd.ScopeCmd(),

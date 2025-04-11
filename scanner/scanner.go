@@ -98,7 +98,7 @@ func (s *Scanner) ScanAndCreateScope() (*scopes.Scope, error) {
 // ScanGitDiffAndCreateScope scans only the scopes that changed in the git diff
 // from and to can be either commit hashes or branch names
 // if to is empty, it will show changes in the working directory
-func (s *Scanner) ScanGitDiffAndCreateScope(to string) (*scopes.Scope, error) {
+func (s *Scanner) ScanGitDiffAndCreateScope(baseCommit string) (*scopes.Scope, error) {
 	const op = "Scanner.ScanGitDiffAndCreateScope"
 
 	gitInfo, err := git.GetInfo()
@@ -107,7 +107,7 @@ func (s *Scanner) ScanGitDiffAndCreateScope(to string) (*scopes.Scope, error) {
 	}
 
 	// Get changed scopes from git diff
-	changedFiles, err := s.getGitDiffFiles(gitInfo.CurrentCommit, to)
+	changedFiles, err := s.getGitDiffFiles(baseCommit, gitInfo.CurrentCommit)
 	if err != nil {
 		return nil, ez.Wrap(op, err)
 	}
@@ -116,9 +116,9 @@ func (s *Scanner) ScanGitDiffAndCreateScope(to string) (*scopes.Scope, error) {
 		return nil, ez.Wrap(op, err)
 	}
 
-	// Create a new scope with the base commit
+	// Create a new scope with the target commit
 	scope := scopes.NewScope(gitInfo.CurrentCommit)
-	scope.TargetCommit = to
+	scope.BaseCommit = baseCommit
 
 	// Process each changed file
 	for _, file := range changedFiles {

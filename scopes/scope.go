@@ -20,10 +20,10 @@ type Scope struct {
 }
 
 // NewScope creates a new Scope with the given base commit
-func NewScope(baseCommit string) *Scope {
+func NewScope(targetCommit string) *Scope {
 	return &Scope{
-		BaseCommit: baseCommit,
-		Files:      make(map[string]interface{}),
+		TargetCommit: targetCommit,
+		Files:        make(map[string]interface{}),
 	}
 }
 

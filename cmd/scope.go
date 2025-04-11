@@ -50,8 +50,8 @@ func scopeCreateCmd() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
-				Name:    "target",
-				Usage:   "Commit or branch to compare to",
+				Name:    "base",
+				Usage:   "Commit or branch to compare to use as base",
 				Aliases: []string{"t"},
 			},
 			&cli.StringSliceFlag{
@@ -68,8 +68,8 @@ func scopeCreateCmd() *cli.Command {
 			var scope *scopes.Scope
 			var err error
 
-			if c.String("target") != "" {
-				scope, err = s.ScanGitDiffAndCreateScope(c.String("target"))
+			if c.String("base") != "" {
+				scope, err = s.ScanGitDiffAndCreateScope(c.String("base"))
 				if err != nil {
 					return ez.Wrap(op, err)
 				}
