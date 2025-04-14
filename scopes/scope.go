@@ -14,14 +14,16 @@ import (
 
 // Scope represents a scope with its metadata and content map
 type Scope struct {
+	Name         string                 `json:"name"`
 	BaseCommit   string                 `json:"baseCommit"`
 	TargetCommit string                 `json:"targetCommit,omitempty"`
 	Files        map[string]interface{} `json:"files"`
 }
 
 // NewScope creates a new Scope with the given base commit
-func NewScope(targetCommit string) *Scope {
+func NewScope(name, targetCommit string) *Scope {
 	return &Scope{
+		Name:         name,
 		TargetCommit: targetCommit,
 		Files:        make(map[string]interface{}),
 	}

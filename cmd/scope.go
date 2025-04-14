@@ -69,12 +69,12 @@ func scopeCreateCmd() *cli.Command {
 			var err error
 
 			if c.String("base") != "" {
-				scope, err = s.ScanGitDiffAndCreateScope(c.String("base"))
+				scope, err = s.ScanGitDiffAndCreateScope(c.String("scope"), c.String("base"))
 				if err != nil {
 					return ez.Wrap(op, err)
 				}
 			} else {
-				scope, err = s.ScanAndCreateScope()
+				scope, err = s.ScanAndCreateScope(c.String("scope"))
 				if err != nil {
 					return ez.Wrap(op, err)
 				}
@@ -84,7 +84,7 @@ func scopeCreateCmd() *cli.Command {
 				return ez.New(op, ez.EINVALID, "Scope name 'context' is reserved", nil)
 			}
 
-			filePath, err := files.GetScopeFilePath(c.String("scope"))
+			filePath, err := files.GetScopeFilePath(scope.Name)
 			if err != nil {
 				return ez.Wrap(op, err)
 			}
@@ -94,7 +94,7 @@ func scopeCreateCmd() *cli.Command {
 				return ez.Wrap(op, err)
 			}
 
-			selectedScope := scopes.NewCommitContext(c.String("scope"))
+			selectedScope := scopes.NewCommitContext(scope.Name)
 			err = selectedScope.Save()
 			if err != nil {
 				return ez.Wrap(op, err)
