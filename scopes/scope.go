@@ -116,11 +116,12 @@ func addToMap(fileMap map[string]interface{}, parts []string, isFile bool) {
 
 // PrintTree prints the scope in a tree-like structure
 func (s *Scope) PrintTree() {
-	fmt.Printf("Scope (Base: %s", s.BaseCommit)
-	if s.TargetCommit != "" {
-		fmt.Printf(", Target: %s", s.TargetCommit)
+	if s.BaseCommit == "" {
+		fmt.Printf("Scope: [%s] Commit: %s \n", s.Name, s.TargetCommit)
+	} else {
+		fmt.Printf("Scope: [%s] Base: %s Target: %s \n", s.Name, s.BaseCommit, s.TargetCommit)
 	}
-	fmt.Println(")")
+	fmt.Println("Files:")
 	printTreeNode(s.Files, "", "")
 }
 

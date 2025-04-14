@@ -122,6 +122,7 @@ func (s *Scanner) ScanGitDiffAndCreateScope(scopeName, baseCommit string) (*scop
 
 	// Process each changed file
 	for _, file := range changedFiles {
+
 		// Skip empty lines
 		if file == "" {
 			continue
@@ -305,9 +306,10 @@ func (s *Scanner) getGitDiffFiles(from, to string) ([]string, error) {
 
 	if to == "" {
 		// If no 'to' is specified, show changes in working directory
-		cmd = exec.Command("git", "diff", "--name-only", from)
+		// Include added, deleted, and modified files
+		cmd = exec.Command("git", "diff", "--name-only", "--diff-filter=ADM", from)
 	} else {
-		cmd = exec.Command("git", "diff", "--name-only", from+".."+to)
+		cmd = exec.Command("git", "diff", "--name-only", "--diff-filter=ADM", from+".."+to)
 	}
 
 	cmd.Dir = s.rootDir

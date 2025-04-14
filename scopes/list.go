@@ -39,7 +39,7 @@ func List() error {
 			scopeName := strings.TrimPrefix(fileName, gitInfo.CurrentCommit+".")
 			scopeName = strings.TrimSuffix(scopeName, ".json")
 			// Skip if the name is empty or contains only whitespace
-			if scopeName != "" && strings.TrimSpace(scopeName) != "" && scopeName != "context" {
+			if scopeName != "" && strings.TrimSpace(scopeName) != "" && scopeName != "context" && scopeName != "weights" {
 				fmt.Println(scopeName)
 				foundScopes = true
 			}
