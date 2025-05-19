@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,7 @@ type Scanner struct {
 	rootDir           string
 	ignoreRules       []string
 	allowedExtensions map[string]bool
+	debug             bool
 }
 
 func New(rootDir string, allowedExtensions []string) *Scanner {
@@ -38,6 +40,10 @@ func New(rootDir string, allowedExtensions []string) *Scanner {
 	}
 
 	return s
+}
+
+func (s *Scanner) SetDebug(debug bool) {
+	s.debug = debug
 }
 
 func (s *Scanner) ScanAndCreateScope(scopeName string) (*scopes.Scope, error) {
@@ -310,6 +316,10 @@ func (s *Scanner) getGitDiffFiles(from, to string) ([]string, error) {
 		cmd = exec.Command("git", "diff", "--name-only", "--diff-filter=ADM", from)
 	} else {
 		cmd = exec.Command("git", "diff", "--name-only", "--diff-filter=ADM", from+".."+to)
+	}
+
+	if s.debug {
+		fmt.Println("Running git diff command:", cmd.String())
 	}
 
 	cmd.Dir = s.rootDir

@@ -54,6 +54,10 @@ func scopeCreateCmd() *cli.Command {
 				Usage:   "Commit or branch to compare to use as base",
 				Aliases: []string{"t"},
 			},
+			&cli.BoolFlag{
+				Name:  "debug",
+				Usage: "Print debug information",
+			},
 			&cli.StringSliceFlag{
 				Name:    "extensions",
 				Usage:   "File extensions to include (e.g., --extensions .go,.js,.ts)",
@@ -64,6 +68,7 @@ func scopeCreateCmd() *cli.Command {
 			const op = "cli.scopeCreateCmd"
 
 			s := scanner.New(".", c.StringSlice("extensions"))
+			s.SetDebug(c.Bool("debug"))
 
 			var scope *scopes.Scope
 			var err error
