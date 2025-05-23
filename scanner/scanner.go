@@ -167,11 +167,17 @@ func (s *Scanner) loadGitIgnore() error {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
-			// Remove any trailing comments
-			if idx := strings.Index(line, "#"); idx >= 0 {
+			// Only remove trailing comments if # is preceded by whitespace
+			// This prevents treating # in patterns like ".#*" as comments
+			if idx := strings.Index(line, " #"); idx >= 0 {
+				line = strings.TrimSpace(line[:idx])
+			} else if idx := strings.Index(line, "\t#"); idx >= 0 {
 				line = strings.TrimSpace(line[:idx])
 			}
-			s.ignoreRules = append(s.ignoreRules, line)
+
+			if line != "" {
+				s.ignoreRules = append(s.ignoreRules, line)
+			}
 		}
 	}
 
